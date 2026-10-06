@@ -26,16 +26,13 @@ Shared functions, including BNT and CircStat subsets, are included in `functions
 
 4. Outputs are saved to a `results` directory created by the scripts. Precomputed results are not included in this repository.
 
-Full-session screening analyses also require `NeuronActivity.mat` in `example_data`.
-
 The `example_data` directory contains:
 
+- `NeuronActivity.mat`: full-session calcium data. The `NeuronActivity` structure contains synchronized timestamps (`time`) and calcium events (`Event_filtered_exp2`).
 - `Spilt_behave_calcium_data.mat`: position, head direction, calcium timestamps and calcium events separated into platform and cylindrical-side recordings. `cell_filter_index` contains the original cell indices used for screening.
 - `climb_position.mat`: full-session position coordinates and frame indices identifying the platform and cylindrical side.
 - `head_direction.mat`: full-session head directions, stored as `cylinder_hd` and `plane_hd`.
 - `platform_hd_cell_ids.mat`: a legacy platform HD cell list; current scripts recalculate this list and do not require this file.
-
-`NeuronActivity.mat` contains full-session calcium data; `NeuronActivity.time` contains synchronized timestamps and `Event_filtered_exp2` contains calcium events. Add this file to `example_data` before running full-session analyses.
 
 Times are in seconds, linear positions in centimeters and head directions in degrees. Calcium-event matrices have frames as rows and original cells as columns. In the split data, behavioral and head-direction rows are aligned with calcium frames; the full-session files retain the recording chronology.
 
