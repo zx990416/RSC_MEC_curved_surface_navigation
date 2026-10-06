@@ -4,7 +4,7 @@
 %   Computes cross-surface MAE and tuning-curve correlation, and whole-session
 %   split-half stability in the dual-axis reference frame. Selects cells with
 %   MAE below the first percentile of 1,000 circular-shift shuffles and
-%   stability > 0.3. Platform HD classification is not required.
+%   stability > 0.3.
 %   Samples with finite speed >= 2 cm/s are used for all tuning curves,
 %   MAE, correlation, whole-session stability and shuffle calculations.
 %
