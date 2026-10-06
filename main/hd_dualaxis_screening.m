@@ -5,8 +5,8 @@
 %   split-half stability in the dual-axis reference frame. Selects cells with
 %   MAE below the first percentile of 1,000 circular-shift shuffles and
 %   stability > 0.3. Platform HD classification is not required.
-%   A 2 cm/s speed cutoff is applied to platform tuning and whole-session
-%   stability; the side MAE and correlation retain unfiltered side samples.
+%   Samples with finite speed >= 2 cm/s are used for all tuning curves,
+%   MAE, correlation, whole-session stability and shuffle calculations.
 %
 % Input:
 %   Standardized Spilt_behave_calcium_data.mat, climb_position.mat,
@@ -59,12 +59,17 @@ cylinder_events = data.cylinder_calcium_event(:, cell_ids) > 0;
 plane_direction = mod(data.hd_dir_plane(:, 2), 360);
 plane_position = data.behav_pos_plane(:, 2:3);
 plane_speed = speed2D(plane_position(:, 1), plane_position(:, 2), plane_time);
-plane_direction(plane_speed < minimum_speed_cm_s) = NaN;
-plane_position(plane_speed < minimum_speed_cm_s, :) = NaN;
-plane_valid_rows = ~isnan(plane_direction) | any(~isnan(plane_position), 2);
+plane_valid_rows = isfinite(plane_speed) & plane_speed >= minimum_speed_cm_s & isfinite(plane_direction);
+plane_direction(~plane_valid_rows) = NaN;
 
 cylinder_heading = mod(data.hd_cylinder(:, 3), 360);
 cylinder_position_angle = mod(rad2deg(data.behav_pos_cylinder(:, 2) / radius_cm), 360);
+cylinder_position = data.behav_pos_cylinder(:, 2:3);
+cylinder_speed = speed2D(cylinder_position(:, 1), cylinder_position(:, 2), cylinder_time);
+cylinder_valid_rows = isfinite(cylinder_speed) & cylinder_speed >= minimum_speed_cm_s & ...
+    isfinite(cylinder_heading) & isfinite(cylinder_position_angle);
+cylinder_heading(~cylinder_valid_rows) = NaN;
+cylinder_position_angle(~cylinder_valid_rows) = NaN;
 cylinder_dualaxis_direction = mod(cylinder_heading + cylinder_position_angle + 90, 360);
 
 position = load(fullfile(data_dir, 'climb_position.mat'), 'cylinder_position', 'plane_position', 'plane_index');
@@ -123,7 +128,8 @@ shuffle_shift_frames = nan(n_cell, n_shuffle);
 for cell_index = 1:n_cell
     plane_event = plane_events(:, cell_index);
     cylinder_event = cylinder_events(:, cell_index);
-    cylinder_tc{cell_index} = tuning_curve(cylinder_dualaxis_direction, cylinder_event, cylinder_dt, bin_width, smoothing_bins);
+    cylinder_analysis_event = cylinder_event & cylinder_valid_rows;
+    cylinder_tc{cell_index} = tuning_curve(cylinder_dualaxis_direction, cylinder_analysis_event, cylinder_dt, bin_width, smoothing_bins);
 
     whole_event = whole_events(:, cell_index);
     if sum(whole_event) >= 10 && sum(whole_event & isfinite(whole_event_direction)) >= 10
@@ -142,11 +148,11 @@ for cell_index = 1:n_cell
     plane_stats = analyses.tcStatistics(plane_tc{cell_index}, bin_width, 50);
     plane_pfd(cell_index) = plane_stats.peakDirection;
     predicted_heading = mod(plane_pfd(cell_index) - cylinder_position_angle + 270, 360);
-    dual_axis_MAE(cell_index) = angular_mae(predicted_heading(cylinder_event), cylinder_heading(cylinder_event));
+    dual_axis_MAE(cell_index) = angular_mae(predicted_heading(cylinder_analysis_event), cylinder_heading(cylinder_analysis_event));
     if ~isempty(cylinder_tc{cell_index})
         dual_axis_tc_correlation(cell_index) = corr(plane_tc{cell_index}(:, 2), cylinder_tc{cell_index}(:, 2));
     end
-    if sum(cylinder_event) < 10
+    if sum(cylinder_analysis_event) < 10
         continue
     end
 
@@ -154,7 +160,7 @@ for cell_index = 1:n_cell
     shuffle_shift_frames(cell_index, :) = shifts';
     shuffled_event_counts = zeros(numel(cylinder_occupancy_seconds), n_shuffle);
     for shuffle_index = 1:n_shuffle
-        shuffled_event = circshift(cylinder_event, shifts(shuffle_index));
+        shuffled_event = circshift(cylinder_event, shifts(shuffle_index)) & cylinder_valid_rows;
         MAE_shuffle(cell_index, shuffle_index) = angular_mae(predicted_heading(shuffled_event), cylinder_heading(shuffled_event));
         shuffled_event_counts(:, shuffle_index) = general.circHist(cylinder_dualaxis_direction(shuffled_event), bin_width)';
     end
